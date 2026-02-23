@@ -2,201 +2,175 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sol Mar Pisos Laminados</title>
-
+<title>Orçamento Marcelo</title>
 <style>
-body{font-family:Arial;background:#eee;padding:20px}
-h2,h3{margin:5px 0}
-.box{background:#fff;padding:15px;border-radius:8px;margin-bottom:10px;max-width:520px}
-input,select,button{padding:6px;margin:4px 0;width:100%}
-button{background:#27ae60;color:#fff;border:0;border-radius:5px;font-size:15px;padding:8px}
-.del{background:#c0392b}
-.fechar{background:#8e44ad}
+body{font-family:Arial;background:#f2f2f2;padding:20px}
+.container{background:#fff;padding:20px;border-radius:10px;max-width:800px;margin:auto}
+input,button{padding:8px;margin:5px;width:100%}
+button{background:green;color:white;border:none;cursor:pointer}
+h2{color:green}
+.table{margin-top:20px}
+.item{background:#eee;padding:10px;margin:5px 0;border-radius:5px}
 </style>
 </head>
-
 <body>
 
-<h2>Sol Mar Pisos Laminados</h2>
+<div class="container">
+<h2>Orçamento Marcelo</h2>
 
-<div class="box">
-Cliente
-<input id="cliente">
+<input type="text" id="cliente" placeholder="Nome do Cliente">
 
-CEP
-<input id="cep">
+<h3>Medidas</h3>
+<input type="number" id="largura" placeholder="Largura (m)">
+<input type="number" id="comprimento" placeholder="Comprimento (m)">
+<input type="number" id="valorMetro" placeholder="Valor do m²">
 
-Rua
-<input id="rua">
+<h3>Rodapé</h3>
+<input type="number" id="valorRodape" placeholder="Valor do metro do rodapé">
 
-Cidade
-<input id="cidade">
+<h3>Acréscimo (%)</h3>
+<input type="number" id="acrescimo" placeholder="Ex: 10">
 
-Ambiente
-<input id="ambiente">
+<button onclick="calcular()">Calcular</button>
 
-Largura (m)
-<input id="largura" type="number" step="0.01">
+<h3>Resultado</h3>
+<div id="resultado"></div>
 
-Comprimento (m)
-<input id="comprimento" type="number" step="0.01">
+<button onclick="salvar()">Salvar Orçamento</button>
 
-Portas
-<input id="portas" type="number" value="0">
+<h3>Orçamentos Salvos</h3>
+<div id="lista"></div>
 
-Barra do rodapé (m)
-<input id="barra" type="number" step="0.01" value="2.10">
+<h3>Total Vendido no Ano (Fechados)</h3>
+<div id="totalAno"></div>
 
-Valor m²
-<input id="vm2" type="number" step="0.01">
-
-Valor rodapé (m)
-<input id="vrod" type="number" step="0.01">
-
-<button onclick="adicionarAmbiente()">Adicionar ambiente</button>
-</div>
-
-<div class="box">
-Forma de pagamento
-<select id="pagamento" onchange="render()">
-<option value="0">À vista</option>
-<option value="10">10x (12,5%)</option>
-<option value="12">12x (14,16%)</option>
-</select>
-
-<ul id="lista"></ul>
-
-<h3 id="total">TOTAL: R$ 0,00</h3>
-<h3 id="totalJuros">TOTAL COM JUROS: R$ 0,00</h3>
-<h4 id="parcelas"></h4>
-
-<button onclick="salvarOrcamento()">Salvar orçamento (em aberto)</button>
-</div>
-
-<div class="box">
-<h3>📁 Orçamentos</h3>
-<ul id="orcamentos"></ul>
-</div>
-
-<div class="box">
-<h3>📊 Total Anual (fechados)</h3>
-<h3 id="totalAno">R$ 0,00</h3>
 </div>
 
 <script>
-let ambientes=[];
-let juros={0:0,10:12.5,12:14.16};
 
-function n(v){return Number(v)||0;}
+const juros = {
+1:3.26,2:5.7,3:6.52,4:7.3,5:8.2,6:9.1,
+7:9.89,8:10.74,9:11.6,10:12.5,11:13.31,12:14.16
+};
 
-document.getElementById("cep").addEventListener("blur",buscarCEP);
+let valorBaseGlobal = 0;
 
-function buscarCEP(){
- let c=cep.value.replace(/\D/g,'');
- if(c.length!==8) return;
- fetch("https://viacep.com.br/ws/"+c+"/json/")
- .then(r=>r.json())
- .then(d=>{
-  if(!d.erro){
-   rua.value=d.logradouro;
-   cidade.value=d.localidade;
-  }
- });
+function calcular(){
+let largura = parseFloat(document.getElementById("largura").value)||0;
+let comprimento = parseFloat(document.getElementById("comprimento").value)||0;
+let valorMetro = parseFloat(document.getElementById("valorMetro").value)||0;
+let valorRodape = parseFloat(document.getElementById("valorRodape").value)||0;
+let acrescimo = parseFloat(document.getElementById("acrescimo").value)||0;
+
+let area = largura * comprimento;
+let totalMaterial = area * valorMetro;
+let metrosRodape = (largura*2)+(comprimento*2);
+let totalRodape = metrosRodape * valorRodape;
+
+let subtotal = totalMaterial + totalRodape;
+let valorAcrescimo = subtotal * (acrescimo/100);
+let totalFinal = subtotal + valorAcrescimo;
+
+valorBaseGlobal = totalFinal;
+
+document.getElementById("resultado").innerHTML =
+"Área: "+area.toFixed(2)+" m²<br>"+
+"Material: R$ "+totalMaterial.toFixed(2)+"<br>"+
+"Rodapé: R$ "+totalRodape.toFixed(2)+"<br>"+
+"Acréscimo: R$ "+valorAcrescimo.toFixed(2)+"<br>"+
+"<strong>Valor Base: R$ "+totalFinal.toFixed(2)+"</strong><br><br>"+
+gerarParcelas(totalFinal);
 }
 
-function adicionarAmbiente(){
- let area = n(largura.value) * n(comprimento.value);
- let area10 = area * 1.10;
-
- let rod = ((n(largura.value)+n(comprimento.value))*2)-(n(portas.value)*0.8);
- if(rod<0) rod=0;
-
- let barras = Math.ceil(rod / n(barra.value));
- let valor = (area10 * n(vm2.value)) + (rod * n(vrod.value));
-
- ambientes.push({ambiente:ambiente.value,area:area10,rod,barras,valor});
- render();
+function gerarParcelas(valor){
+let texto="<h4>Parcelamento</h4>";
+for(let i=1;i<=12;i++){
+let totalJuros = valor + (valor*(juros[i]/100));
+let parcela = totalJuros/i;
+texto+= i+"x ("+juros[i]+"%)<br>"+
+"Total: R$ "+totalJuros.toFixed(2)+"<br>"+
+"Parcela: R$ "+parcela.toFixed(2)+"<br><br>";
+}
+return texto;
 }
 
-function render(){
- lista.innerHTML="";
- let soma=0;
- ambientes.forEach((a,i)=>{
-  soma+=a.valor;
-  lista.innerHTML+=`
-  <li>
-  ${a.ambiente}<br>
-  Área c/ 10%: ${a.area.toFixed(2)} m²<br>
-  Rodapé: ${a.rod.toFixed(2)} m (${a.barras} barras)<br>
-  Valor: R$ ${a.valor.toFixed(2)}
-  <button class="del" onclick="ambientes.splice(${i},1);render()">Excluir</button>
-  </li>`;
- });
+function salvar(){
+let cliente = document.getElementById("cliente").value;
+if(!cliente || valorBaseGlobal==0){alert("Preencha e calcule primeiro");return;}
 
- let p=n(pagamento.value);
- let j=juros[p];
- let totalJ=soma+(soma*j/100);
+let orcamentos = JSON.parse(localStorage.getItem("orcamentos")||"[]");
 
- total.innerText="TOTAL: R$ "+soma.toFixed(2);
- totalJuros.innerText="TOTAL COM JUROS: R$ "+totalJ.toFixed(2);
- parcelas.innerText=p>0?`${p}x de R$ ${(totalJ/p).toFixed(2)}`:"À vista";
-}
+orcamentos.push({
+cliente:cliente,
+valor:valorBaseGlobal,
+status:"Em aberto",
+ano:new Date().getFullYear()
+});
 
-function salvarOrcamento(){
- let dados=JSON.parse(localStorage.getItem("orcamentos"))||[];
- let total=parseFloat(totalJuros.innerText.replace(/[^\d,]/g,'').replace(',','.'));
-
- dados.push({
-  cliente:cliente.value,
-  rua:rua.value,
-  cidade:cidade.value,
-  total:total,
-  status:"Em aberto",
-  data:new Date().toISOString()
- });
-
- localStorage.setItem("orcamentos",JSON.stringify(dados));
- ambientes=[];
- render();
- listar();
+localStorage.setItem("orcamentos",JSON.stringify(orcamentos));
+listar();
 }
 
 function listar(){
- let dados=JSON.parse(localStorage.getItem("orcamentos"))||[];
- orcamentos.innerHTML="";
- let anoTotal=0;
+let lista=document.getElementById("lista");
+let orcamentos = JSON.parse(localStorage.getItem("orcamentos")||"[]");
+lista.innerHTML="";
 
- dados.forEach((o,i)=>{
-  if(o.status==="Fechado") anoTotal+=o.total;
+orcamentos.forEach((o,index)=>{
+lista.innerHTML+=`
+<div class="item">
+${o.cliente} - R$ ${o.valor.toFixed(2)} - ${o.status}<br>
+<button onclick="ver(${index})">Ver</button>
+<button onclick="fechar(${index})">Fechar</button>
+<button onclick="excluir(${index})">Excluir</button>
+</div>
+`;
+});
 
-  orcamentos.innerHTML+=`
-  <li>
-  ${o.cliente} - R$ ${o.total.toFixed(2)} - ${o.status}
-  <button class="fechar" onclick="fechar(${i})">Fechado</button>
-  <button class="del" onclick="excluir(${i})">Excluir</button>
-  </li>`;
- });
-
- totalAno.innerText="R$ "+anoTotal.toFixed(2);
+calcularTotalAno();
 }
 
-function fechar(i){
- let dados=JSON.parse(localStorage.getItem("orcamentos"));
- dados[i].status="Fechado";
- localStorage.setItem("orcamentos",JSON.stringify(dados));
- listar();
+function ver(index){
+let orcamentos = JSON.parse(localStorage.getItem("orcamentos")||"[]");
+let o = orcamentos[index];
+
+let novaJanela = window.open("","_blank");
+novaJanela.document.write(`
+<h2>Orçamento de ${o.cliente}</h2>
+<p>Status: ${o.status}</p>
+<p>Valor Base: R$ ${o.valor.toFixed(2)}</p>
+${gerarParcelas(o.valor)}
+`);
 }
 
-function excluir(i){
- let dados=JSON.parse(localStorage.getItem("orcamentos"));
- dados.splice(i,1);
- localStorage.setItem("orcamentos",JSON.stringify(dados));
- listar();
+function fechar(index){
+let orcamentos = JSON.parse(localStorage.getItem("orcamentos")||"[]");
+orcamentos[index].status="Fechado";
+localStorage.setItem("orcamentos",JSON.stringify(orcamentos));
+listar();
+}
+
+function excluir(index){
+let orcamentos = JSON.parse(localStorage.getItem("orcamentos")||"[]");
+orcamentos.splice(index,1);
+localStorage.setItem("orcamentos",JSON.stringify(orcamentos));
+listar();
+}
+
+function calcularTotalAno(){
+let orcamentos = JSON.parse(localStorage.getItem("orcamentos")||"[]");
+let anoAtual=new Date().getFullYear();
+let total=0;
+orcamentos.forEach(o=>{
+if(o.status=="Fechado" && o.ano==anoAtual){
+total+=o.valor;
+}
+});
+document.getElementById("totalAno").innerHTML="<strong>R$ "+total.toFixed(2)+"</strong>";
 }
 
 listar();
-</script>
 
+</script>
 </body>
 </html>
