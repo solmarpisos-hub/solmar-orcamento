@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sol Mar Pisos Laminados</title>
+
+<style>
+body{font-family:Arial;background:#eee;padding:20px}
+h2,h3{margin:5px 0}
+.box{background:#fff;padding:15px;border-radius:8px;margin-bottom:10px;max-width:520px}
+input,select,button{padding:6px;margin:4px 0;width:100%}
+button{background:#27ae60;color:#fff;border:0;border-radius:5px;font-size:15px;padding:8px}
+.del{background:#c0392b}
+.fechar{background:#8e44ad}
+</style>
+</head>
+
+<body>
+
+<h2>Sol Mar Pisos Laminados</h2>
+
+<div class="box">
+Cliente
+<input id="cliente">
+
+CEP
+<input id="cep">
+
+Rua
+<input id="rua">
+
+Cidade
+<input id="cidade">
+
+Ambiente
+<input id="ambiente">
+
+Largura (m)
+<input id="largura" type="number" step="0.01">
+
+Comprimento (m)
+<input id="comprimento" type="number" step="0.01">
+
+Portas
+<input id="portas" type="number" value="0">
+
+Barra do rodapé (m)
+<input id="barra" type="number" step="0.01" value="2.10">
+
+Valor m²
+<input id="vm2" type="number" step="0.01">
+
+Valor rodapé (m)
+<input id="vrod" type="number" step="0.01">
+
+<button onclick="adicionarAmbiente()">Adicionar ambiente</button>
+</div>
+
+<div class="box">
+Forma de pagamento
+<select id="pagamento" onchange="render()">
+<option value="0">À vista</option>
+<option value="10">10x (12,5%)</option>
+<option value="12">12x (14,16%)</option>
+</select>
+
+<ul id="lista"></ul>
+
+<h3 id="total">TOTAL: R$ 0,00</h3>
+<h3 id="totalJuros">TOTAL COM JUROS: R$ 0,00</h3>
+<h4 id="parcelas"></h4>
+
+<button onclick="salvarOrcamento()">Salvar orçamento (em aberto)</button>
+</div>
+
+<div class="box">
+<h3>📁 Orçamentos</h3>
+<ul id="orcamentos"></ul>
+</div>
+
+<div class="box">
+<h3>📊 Total Anual (fechados)</h3>
+<h3 id="totalAno">R$ 0,00</h3>
+</div>
+
+<script>
+let ambientes=[];
+let juros={0:0,10:12.5,12:14.16};
+
+function n(v){return Number(v)||0;}
+
+document.getElementById("cep").addEventListener("blur",buscarCEP);
+
+function buscarCEP(){
+ let c=cep.value.replace(/\D/g,'');
+ if(c.length!==8) return;
+ fetch("https://viacep.com.br/ws/"+c+"/json/")
+ .then(r=>r.json())
+ .then(d=>{
+  if(!d.erro){
+   rua.value=d.logradouro;
+   cidade.value=d.localidade;
+  }
+ });
+}
+
+function adicionarAmbiente(){
+ let area = n(largura.value) * n(comprimento.value);
+ let area10 = area * 1.10;
+
+ let rod = ((n(largura.value)+n(comprimento.value))*2)-(n(portas.value)*0.8);
+ if(rod<0) rod=0;
+
+ let barras = Math.ceil(rod / n(barra.value));
+ let valor = (area10 * n(vm2.value)) + (rod * n(vrod.value));
+
+ ambientes.push({ambiente:ambiente.value,area:area10,rod,barras,valor});
+ render();
+}
+
+function render(){
+ lista.innerHTML="";
+ let soma=0;
+ ambientes.forEach((a,i)=>{
+  soma+=a.valor;
+  lista.innerHTML+=`
+  <li>
+  ${a.ambiente}<br>
+  Área c/ 10%: ${a.area.toFixed(2)} m²<br>
+  Rodapé: ${a.rod.toFixed(2)} m (${a.barras} barras)<br>
+  Valor: R$ ${a.valor.toFixed(2)}
+  <button class="del" onclick="ambientes.splice(${i},1);render()">Excluir</button>
+  </li>`;
+ });
+
+ let p=n(pagamento.value);
+ let j=juros[p];
+ let totalJ=soma+(soma*j/100);
+
+ total.innerText="TOTAL: R$ "+soma.toFixed(2);
+ totalJuros.innerText="TOTAL COM JUROS: R$ "+totalJ.toFixed(2);
+ parcelas.innerText=p>0?`${p}x de R$ ${(totalJ/p).toFixed(2)}`:"À vista";
+}
+
+function salvarOrcamento(){
+ let dados=JSON.parse(localStorage.getItem("orcamentos"))||[];
+ let total=parseFloat(totalJuros.innerText.replace(/[^\d,]/g,'').replace(',','.'));
+
+ dados.push({
+  cliente:cliente.value,
+  rua:rua.value,
+  cidade:cidade.value,
+  total:total,
+  status:"Em aberto",
+  data:new Date().toISOString()
+ });
+
+ localStorage.setItem("orcamentos",JSON.stringify(dados));
+ ambientes=[];
+ render();
+ listar();
+}
+
+function listar(){
+ let dados=JSON.parse(localStorage.getItem("orcamentos"))||[];
+ orcamentos.innerHTML="";
+ let anoTotal=0;
+
+ dados.forEach((o,i)=>{
+  if(o.status==="Fechado") anoTotal+=o.total;
+
+  orcamentos.innerHTML+=`
+  <li>
+  ${o.cliente} - R$ ${o.total.toFixed(2)} - ${o.status}
+  <button class="fechar" onclick="fechar(${i})">Fechado</button>
+  <button class="del" onclick="excluir(${i})">Excluir</button>
+  </li>`;
+ });
+
+ totalAno.innerText="R$ "+anoTotal.toFixed(2);
+}
+
+function fechar(i){
+ let dados=JSON.parse(localStorage.getItem("orcamentos"));
+ dados[i].status="Fechado";
+ localStorage.setItem("orcamentos",JSON.stringify(dados));
+ listar();
+}
+
+function excluir(i){
+ let dados=JSON.parse(localStorage.getItem("orcamentos"));
+ dados.splice(i,1);
+ localStorage.setItem("orcamentos",JSON.stringify(dados));
+ listar();
+}
+
+listar();
+</script>
+
+</body>
+</html>
